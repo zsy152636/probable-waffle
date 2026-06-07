@@ -36,6 +36,16 @@
       <span>{{ question.options?.[0]?.text || '' }}</span>
     </div>
 
+    <div class="question-answer code-block" v-if="question.questionType === 'CODE'">
+      <span class="answer-label">参考代码：</span>
+      <pre><code>{{ question.options?.[0]?.text || '' }}</code></pre>
+    </div>
+
+    <div class="question-answer" v-if="question.questionType === 'CALCULATION'">
+      <span class="answer-label">所需公式：</span>
+      <pre class="formula-text">{{ question.options?.[0]?.text || '' }}</pre>
+    </div>
+
     <div class="question-footer">
       <span v-if="question.analysis" class="analysis">
         <strong>解析：</strong>{{ question.analysis }}
@@ -87,12 +97,14 @@ const typeLabel = computed(() => getQuestionTypeLabel(props.question.questionTyp
 const difficultyStars = computed(() => getDifficultyStars(props.question.difficulty))
 
 const typeTagColor = computed(() => {
-  const map: Record<QuestionType, string> = {
+  const map: Record<string, string> = {
     SINGLE: 'primary',
     MULTI: 'success',
     JUDGE: 'warning',
     FILL: 'info',
-    SHORT: 'danger'
+    SHORT: 'danger',
+    CODE: '',
+    CALCULATION: ''
   }
   return map[props.question.questionType] || 'info'
 })
@@ -210,5 +222,27 @@ const hasOptions = computed(() =>
   margin-top: var(--space-2);
   padding-top: var(--space-2);
   border-top: 1px solid var(--border-subtle);
+}
+.code-block pre {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border-radius: 6px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 8px 0 0 0;
+}
+.code-block pre code {
+  font-family: 'Fira Code', 'Consolas', monospace;
+}
+.formula-text {
+  background: var(--bg-muted);
+  border-radius: 4px;
+  padding: 10px 14px;
+  font-family: 'Consolas', monospace;
+  font-size: 14px;
+  white-space: pre-wrap;
+  margin: 8px 0 0 0;
 }
 </style>

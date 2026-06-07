@@ -22,7 +22,8 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, path, component, icon, ty
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, path, component, icon, type, permission, sort, `visible`) VALUES
 (11, 10, '用户管理', '/system/user',  'system/UserManageView',   'User',      1, 'user:list',     1, 1),
 (12, 10, '权限管理', '/system/role',  'system/RoleManageView',   'Lock',      1, 'role:list',     2, 1),
-(13, 10, 'AI配置',   '/system/ai',    'system/AIConfigView',      'Cpu',       1, 'ai:list',       3, 1);
+(13, 10, 'AI配置',         '/system/ai',              'system/AIConfigView',           'Cpu',       1, 'ai:list',         3, 1),
+(14, 10, '题目生成配置',   '/system/question-config',  'system/QuestionGenConfigView',  'Edit',      1, 'doc:genQuestion',  4, 1);
 
 -- 应用子菜单
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, path, component, icon, type, permission, sort, `visible`) VALUES

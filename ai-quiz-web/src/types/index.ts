@@ -127,6 +127,7 @@ export interface GenerateConfig {
     judge: number
   }
   direction?: string
+  configId?: string | number
 }
 
 // ========== 试题 ==========
@@ -142,13 +143,16 @@ export interface TestPaperItem {
   multiCount: number
   judgeCount: number
   fillCount: number
+  shortCount: number
+  codeCount: number
+  calcCount: number
   totalScore: number
   createTime: string
 }
 
 // ========== 题目 ==========
 
-export type QuestionType = 'SINGLE' | 'MULTI' | 'JUDGE' | 'FILL' | 'SHORT'
+export type QuestionType = 'SINGLE' | 'MULTI' | 'JUDGE' | 'FILL' | 'SHORT' | 'CODE' | 'CALCULATION'
 
 export interface QuestionOption {
   id?: string
@@ -310,4 +314,27 @@ export interface AssignRolesParams {
 
 export interface AssignMenusParams {
   menuIds: number[]
+}
+
+// ========== 题目生成配置 ==========
+
+export interface GenConfigTypeItem {
+  id?: string
+  questionType: QuestionType
+  count: number
+  sort?: number
+}
+
+export interface GenConfigItem {
+  id?: string
+  name: string
+  description: string
+  totalCount: number
+  needPassage: number
+  direction: string
+  sort: number
+  isActive: number
+  types?: GenConfigTypeItem[]
+  createTime?: string
+  updateTime?: string
 }

@@ -40,6 +40,9 @@ public class TestPaperController {
             m.put("multiCount", paper.getMultiCount());
             m.put("judgeCount", paper.getJudgeCount());
             m.put("fillCount", paper.getFillCount());
+            m.put("shortCount", paper.getShortCount());
+            m.put("codeCount", paper.getCodeCount());
+            m.put("calcCount", paper.getCalcCount());
             m.put("totalScore", paper.getTotalScore());
             m.put("createTime", paper.getCreateTime());
             return m;

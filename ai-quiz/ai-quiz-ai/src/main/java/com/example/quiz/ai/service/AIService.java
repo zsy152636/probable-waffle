@@ -27,14 +27,19 @@ public class AIService {
             1. 题目覆盖文档的核心知识点，避免重复考点
             2. 每道题标注难度：1-简单 2-中等 3-困难，三种难度均匀分布
             3. 每道题包含答案解析
-            4. 单选题和多选题均需4个选项(A/B/C/D)，并标注正确答案
-            5. 判断题必须有2个选项："正确"和"错误"，isCorrect 标注正确答案
-            6. 填空题必须有正确选项，label 为"答案"
-            7. 每道题默认分值 5 分
-            8. 关键：每一道题都必须包含 "options" 字段（数组），不能省略
-            9. 如果出题方向要求"阅读理解"或"文章题"，请在 passage 字段中提供约200字的阅读材料
-            10. 只生成上述题型分布中列出的题型，不要生成任何未列出的题型
-            11. 返回严格的 JSON 格式，不要包含任何其他文字
+            4. 单选题(SINGLE)和多选题(MULTI)均需4个选项(A/B/C/D)，并标注正确答案
+            5. 判断题(JUDGE)必须有2个选项："正确"和"错误"，isCorrect 标注正确答案
+            6. 填空题(FILL)必须有正确选项，label 为"答案"
+            7. 简答题(SHORT)的 options[0].text 为参考答案
+            8. 代码题(CODE)：questionTitle 为编程题目描述，passage 可选提供代码上下文，
+               options[0] 的 label 为"参考代码"，text 为参考代码实现
+            9. 计算大题(CALCULATION)：questionTitle 为题目描述，passage 可选提供背景，
+               options[0] 的 label 为"所需公式"，text 为所需公式（仅给公式，不给完整解题过程）
+            10. 每道题默认分值 5 分，代码题和计算大题建议 15-20 分
+            11. 关键：每一道题都必须包含 "options" 字段（数组），不能省略
+            %s
+            12. 只生成上述题型分布中列出的题型，不要生成任何未列出的题型
+            13. 返回严格的 JSON 格式，不要包含任何其他文字
 
             返回 JSON 格式如下（注意每道题都必须有 options 字段，passage 为选填）：
             {
@@ -54,15 +59,15 @@ public class AIService {
                   "score": 5
                 },
                 {
-                  "questionType": "JUDGE",
-                  "questionTitle": "判断题示例",
+                  "questionType": "CODE",
+                  "questionTitle": "请编写一个函数实现...",
+                  "passage": "可选的代码上下文或前置说明",
                   "options": [
-                    { "label": "A", "text": "正确", "isCorrect": true },
-                    { "label": "B", "text": "错误", "isCorrect": false }
+                    { "label": "参考代码", "text": "def solution():\\n    pass", "isCorrect": true }
                   ],
-                  "analysis": "答案解析",
-                  "difficulty": 1,
-                  "score": 5
+                  "analysis": "解题思路说明",
+                  "difficulty": 2,
+                  "score": 15
                 }
               ]
             }
@@ -128,7 +133,8 @@ public class AIService {
         String systemPrompt = String.format(PROMPT_TEMPLATE,
                 totalCount,
                 typeDist.toString(),
-                directionLine
+                directionLine,
+                "" // 旧模式不强制 passage
         );
 
         // 根据题目数量动态计算 max_tokens，防止输出截断
@@ -139,6 +145,60 @@ public class AIService {
         String json = extractJson(rawResponse);
 
         // 预校验 JSON 结构完整性
+        validateQuestionJson(json);
+
+        return json;
+    }
+
+    private static final Map<String, String> TYPE_LABELS = Map.of(
+        "SINGLE", "选择题", "MULTI", "多选题", "JUDGE", "判断题",
+        "FILL", "填空题", "SHORT", "简答题", "CODE", "代码题", "CALCULATION", "计算大题"
+    );
+
+    /**
+     * 基于题目生成配置的子表题型明细动态构建 Prompt 并生成题目
+     */
+    @SuppressWarnings("unchecked")
+    public String generateQuestionsFromConfig(String contentText, int totalCount, int needPassage,
+                                               List<Map<String, Object>> types,
+                                               String configDirection, String reqDirection) {
+        AIConfig aiConfig = aiConfigService.getActive();
+
+        if (types == null || types.isEmpty()) {
+            throw new BusinessException("题目配置中未设置任何题型");
+        }
+
+        // 构建题型分布描述
+        StringBuilder typeDist = new StringBuilder();
+        for (Map<String, Object> t : types) {
+            String type = (String) t.get("questionType");
+            int count = t.get("count") instanceof Integer i ? i : 0;
+            String label = TYPE_LABELS.getOrDefault(type, type);
+            if (count > 0) {
+                typeDist.append(String.format("  %s(%s)：%d 道\n", label, type, count));
+            }
+        }
+
+        // 合并 direction
+        String mergedDirection = configDirection != null ? configDirection : "";
+        if (reqDirection != null && !reqDirection.isBlank()) {
+            mergedDirection = mergedDirection.isBlank() ? reqDirection : mergedDirection + "\n" + reqDirection;
+        }
+        String directionLine = "";
+        if (!mergedDirection.isBlank()) {
+            directionLine = "【出题方向】\n" + mergedDirection.strip() + "\n";
+        }
+
+        String systemPrompt = String.format(PROMPT_TEMPLATE,
+                totalCount,
+                typeDist.toString(),
+                directionLine,
+                ""
+        );
+
+        int maxTokens = Math.max(configMaxTokens(aiConfig), totalCount * 800 + 2000);
+        String rawResponse = clientFactory.callAI(aiConfig, systemPrompt, contentText, maxTokens, true);
+        String json = extractJson(rawResponse);
         validateQuestionJson(json);
 
         return json;

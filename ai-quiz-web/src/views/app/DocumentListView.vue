@@ -137,66 +137,113 @@
     <el-dialog v-model="generateVisible" title="题目生成配置" width="520px" destroy-on-close>
       <div class="generate-config">
         <div class="config-section">
-          <div class="config-label">生成数量</div>
-          <el-radio-group v-model="genConfig.totalCount">
-            <el-radio-button :value="20">20</el-radio-button>
-            <el-radio-button :value="50">50</el-radio-button>
-            <el-radio-button :value="60">60</el-radio-button>
-          </el-radio-group>
+          <div class="config-label">选择配置模板</div>
+          <el-select v-model="selectedConfigId" placeholder="自定义（手动设置）" clearable class="config-select" @change="onConfigSelect">
+            <el-option
+              v-for="c in configList"
+              :key="c.id"
+              :label="c.name"
+              :value="c.id"
+            >
+              <span>{{ c.name }}</span>
+              <span class="config-option-extra">（{{ c.totalCount }}题）</span>
+            </el-option>
+          </el-select>
         </div>
 
-        <div class="config-section">
-          <el-checkbox v-model="genConfig.includeFill">包含填空题</el-checkbox>
-        </div>
+        <template v-if="!selectedConfigId">
+          <div class="config-section">
+            <div class="config-label">生成数量</div>
+            <el-radio-group v-model="genConfig.totalCount">
+              <el-radio-button :value="20">20</el-radio-button>
+              <el-radio-button :value="50">50</el-radio-button>
+              <el-radio-button :value="60">60</el-radio-button>
+            </el-radio-group>
+          </div>
 
-        <div class="config-section">
-          <div class="config-label">出题方向（选填）</div>
-          <el-input
-            v-model="genConfig.direction"
-            type="textarea"
-            :rows="3"
-            placeholder="例如：文科可围绕知识点生成阅读理解类题型；理科可出冷门易错题型，侧重公式推导和概念辨析"
-          />
-        </div>
+          <div class="config-section">
+            <el-checkbox v-model="genConfig.includeFill">包含填空题</el-checkbox>
+          </div>
 
-        <div class="config-section" v-if="!genConfig.includeFill">
-          <div class="config-label">题型比例</div>
-          <div class="ratio-sliders">
-            <div class="ratio-item">
-              <span class="ratio-name">单选题</span>
-              <el-slider
-                v-model="genConfig.typeRatios.single"
-                :min="0"
-                :max="100"
-                show-input
-                @input="onSingleChange"
-              />
-              <span class="ratio-count">{{ singleCount }}题</span>
-            </div>
-            <div class="ratio-item">
-              <span class="ratio-name">多选题</span>
-              <el-slider
-                v-model="genConfig.typeRatios.multi"
-                :min="0"
-                :max="100"
-                show-input
-                @input="onMultiChange"
-              />
-              <span class="ratio-count">{{ multiCount }}题</span>
-            </div>
-            <div class="ratio-item">
-              <span class="ratio-name">判断题</span>
-              <el-slider
-                v-model="genConfig.typeRatios.judge"
-                :min="0"
-                :max="100"
-                show-input
-                @input="onJudgeChange"
-              />
-              <span class="ratio-count">{{ judgeCount }}题</span>
+          <div class="config-section">
+            <div class="config-label">出题方向（选填）</div>
+            <el-input
+              v-model="genConfig.direction"
+              type="textarea"
+              :rows="3"
+              placeholder="例如：文科可围绕知识点生成阅读理解类题型；理科可出冷门易错题型，侧重公式推导和概念辨析"
+            />
+          </div>
+
+          <div class="config-section" v-if="!genConfig.includeFill">
+            <div class="config-label">题型比例</div>
+            <div class="ratio-sliders">
+              <div class="ratio-item">
+                <span class="ratio-name">单选题</span>
+                <el-slider
+                  v-model="genConfig.typeRatios.single"
+                  :min="0"
+                  :max="100"
+                  show-input
+                  @input="onSingleChange"
+                />
+                <span class="ratio-count">{{ singleCount }}题</span>
+              </div>
+              <div class="ratio-item">
+                <span class="ratio-name">多选题</span>
+                <el-slider
+                  v-model="genConfig.typeRatios.multi"
+                  :min="0"
+                  :max="100"
+                  show-input
+                  @input="onMultiChange"
+                />
+                <span class="ratio-count">{{ multiCount }}题</span>
+              </div>
+              <div class="ratio-item">
+                <span class="ratio-name">判断题</span>
+                <el-slider
+                  v-model="genConfig.typeRatios.judge"
+                  :min="0"
+                  :max="100"
+                  show-input
+                  @input="onJudgeChange"
+                />
+                <span class="ratio-count">{{ judgeCount }}题</span>
+              </div>
             </div>
           </div>
-        </div>
+        </template>
+
+        <template v-else>
+          <div class="config-section">
+            <div class="config-label">题型预览</div>
+            <div class="config-preview">
+              <el-tag
+                v-for="t in selectedConfigTypes"
+                :key="t.questionType"
+                size="small"
+                class="preview-tag"
+              >
+                {{ getQuestionTypeLabel(t.questionType) }} ×{{ t.count }}
+              </el-tag>
+              <div class="preview-total">共 <strong>{{ selectedConfigTotal }}</strong> 道题</div>
+            </div>
+          </div>
+          <div class="config-section" v-if="selectedConfig?.direction">
+            <div class="config-label">出题方向</div>
+            <div class="config-direction-preview">{{ selectedConfig.direction }}</div>
+          </div>
+          <div class="config-section">
+            <div class="config-label">补充方向（选填）</div>
+            <el-input
+              v-model="genConfig.direction"
+              type="textarea"
+              :rows="2"
+              placeholder="可在此补充额外要求..."
+            />
+          </div>
+        </template>
       </div>
       <template #footer>
         <el-button @click="generateVisible = false">取消</el-button>
@@ -213,8 +260,9 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import { Upload, Search } from '@element-plus/icons-vue'
 import * as docApi from '@/api/document'
 import { generateQuestions } from '@/api/question'
-import { hasPerm } from '@/utils'
-import type { DocumentItem, GenerateConfig } from '@/types'
+import * as configApi from '@/api/questionGenConfig'
+import { hasPerm, getQuestionTypeLabel } from '@/utils'
+import type { DocumentItem, GenerateConfig, GenConfigItem, GenConfigTypeItem } from '@/types'
 import UploadDocument from '@/components/UploadDocument.vue'
 
 const router = useRouter()
@@ -346,21 +394,62 @@ async function handleDelete(row: DocumentItem) {
   fetchList()
 }
 
+// 配置模板相关
+const configList = ref<GenConfigItem[]>([])
+const selectedConfigId = ref('')
+
+const selectedConfig = computed(() =>
+  configList.value.find(c => c.id === selectedConfigId.value)
+)
+
+const selectedConfigTypes = computed<GenConfigTypeItem[]>(() => {
+  if (!selectedConfig.value) return []
+  return selectedConfig.value.types || []
+})
+
+const selectedConfigTotal = computed(() => {
+  const sum = selectedConfigTypes.value.reduce((s, t) => s + (t.count || 0), 0)
+  return sum > 0 ? sum : (selectedConfig.value?.totalCount || 0)
+})
+
+function onConfigSelect() {
+  genConfig.direction = ''
+}
+
+async function fetchConfigList() {
+  try {
+    const { data } = await configApi.listActiveConfigs()
+    configList.value = data.data || []
+  } catch { /* ignore */ }
+}
+
 function handleGenerate(row: DocumentItem) {
   currentGenDocId.value = row.id
+  selectedConfigId.value = ''
   Object.assign(genConfig, {
     totalCount: 20,
     includeFill: false,
     typeRatios: { single: 50, multi: 30, judge: 20 },
     direction: ''
   })
+  fetchConfigList()
   generateVisible.value = true
 }
 
 async function handleStartGenerate() {
   generating.value = true
   try {
-    await generateQuestions(currentGenDocId.value, JSON.parse(JSON.stringify(genConfig)))
+    if (selectedConfigId.value) {
+      await generateQuestions(currentGenDocId.value, {
+        totalCount: selectedConfigTotal.value,
+        includeFill: false,
+        typeRatios: { single: 50, multi: 30, judge: 20 },
+        direction: genConfig.direction || undefined,
+        configId: selectedConfigId.value
+      })
+    } else {
+      await generateQuestions(currentGenDocId.value, JSON.parse(JSON.stringify(genConfig)))
+    }
     ElMessage.success('题目生成成功，正在跳转确认页...')
     generateVisible.value = false
     router.push(`/app/document/${currentGenDocId.value}/questions`)
@@ -418,5 +507,29 @@ onMounted(fetchList)
   min-width: 36px;
   color: #909399;
   font-size: 13px;
+}
+.config-select { width: 100%; }
+.config-option-extra { color: var(--text-tertiary); font-size: 12px; margin-left: 4px; }
+.config-preview {
+  padding: 12px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-sm);
+  min-height: 40px;
+}
+.preview-tag { margin-right: 6px; margin-bottom: 4px; }
+.preview-total {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.config-direction-preview {
+  padding: 10px 12px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  max-height: 120px;
+  overflow-y: auto;
 }
 </style>

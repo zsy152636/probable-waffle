@@ -21,20 +21,30 @@
 
       <el-table :data="tableData" stripe v-loading="loading" border>
         <el-table-column prop="paperNo" label="试题编号" width="200" show-overflow-tooltip />
-        <el-table-column prop="paperName" label="试题名称" min-width="180" show-overflow-tooltip />
-        <el-table-column label="单选题" width="80" align="center">
+        <el-table-column prop="paperName" label="试题名称" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="totalCount" label="总题数" width="72" align="center" />
+        <el-table-column label="单选" width="60" align="center">
           <template #default="{ row }">{{ row.singleCount }}</template>
         </el-table-column>
-        <el-table-column label="多选题" width="80" align="center">
+        <el-table-column label="多选" width="60" align="center">
           <template #default="{ row }">{{ row.multiCount }}</template>
         </el-table-column>
-        <el-table-column label="判断题" width="80" align="center">
+        <el-table-column label="判断" width="60" align="center">
           <template #default="{ row }">{{ row.judgeCount }}</template>
         </el-table-column>
-        <el-table-column label="填空题" width="80" align="center">
+        <el-table-column label="填空" width="60" align="center">
           <template #default="{ row }">{{ row.fillCount }}</template>
         </el-table-column>
-        <el-table-column prop="totalScore" label="总分" width="80" align="center" />
+        <el-table-column label="简答" width="60" align="center">
+          <template #default="{ row }">{{ row.shortCount || 0 }}</template>
+        </el-table-column>
+        <el-table-column label="代码" width="60" align="center">
+          <template #default="{ row }">{{ row.codeCount || 0 }}</template>
+        </el-table-column>
+        <el-table-column label="计算" width="60" align="center">
+          <template #default="{ row }">{{ row.calcCount || 0 }}</template>
+        </el-table-column>
+        <el-table-column prop="totalScore" label="总分" width="70" align="center" />
         <el-table-column prop="createTime" label="创建时间" width="170" />
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">

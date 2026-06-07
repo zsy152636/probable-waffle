@@ -16,11 +16,13 @@
           </el-select>
           <el-select v-model="filterType" placeholder="题型筛选" clearable class="filter-select" @change="onFilterChange">
             <el-option label="全部题型" value="" />
-            <el-option label="单选题" value="SINGLE" />
+            <el-option label="选择题" value="SINGLE" />
             <el-option label="多选题" value="MULTI" />
             <el-option label="判断题" value="JUDGE" />
             <el-option label="填空题" value="FILL" />
             <el-option label="简答题" value="SHORT" />
+            <el-option label="代码题" value="CODE" />
+            <el-option label="计算大题" value="CALCULATION" />
           </el-select>
           <el-button @click="handleSelectAll">全选 / 取消全选</el-button>
           <el-button type="warning" @click="handleRegenerate">
@@ -83,7 +85,7 @@
         v-model:current-page="page"
         v-model:page-size="pageSize"
         :total="total"
-        :page-sizes="[10, 20, 50, 100]"
+        :page-sizes="[50, 20, 100, 10]"
         layout="total, sizes, prev, pager, next"
         @size-change="fetchQuestions"
         @current-change="fetchQuestions"
@@ -97,27 +99,72 @@
       @submit="handleSaveQuestion"
     />
 
-    <el-dialog v-model="regenerateVisible" title="重新生成题目" width="420px" destroy-on-close>
+    <el-dialog v-model="regenerateVisible" title="生成题目" width="520px" destroy-on-close>
       <div class="config-section">
-        <div class="config-label">生成数量</div>
-        <el-radio-group v-model="genCount">
-          <el-radio-button :value="20">20</el-radio-button>
-          <el-radio-button :value="50">50</el-radio-button>
-          <el-radio-button :value="60">60</el-radio-button>
-        </el-radio-group>
+        <div class="config-label">选择配置模板</div>
+        <el-select v-model="selectedConfigId" placeholder="自定义（手动设置）" clearable class="config-select" @change="onConfigSelect">
+          <el-option
+            v-for="c in configList"
+            :key="c.id"
+            :label="c.name"
+            :value="c.id"
+          >
+            <span>{{ c.name }}</span>
+            <span class="config-option-extra">（{{ c.totalCount }}题）</span>
+          </el-option>
+        </el-select>
       </div>
-      <div class="config-section" style="margin-top:16px;">
-        <el-checkbox v-model="includeFill">包含填空题</el-checkbox>
-      </div>
-      <div class="config-section" style="margin-top:16px;">
-        <div class="config-label">出题方向（选填）</div>
-        <el-input
-          v-model="direction"
-          type="textarea"
-          :rows="3"
-          placeholder="例如：文科可围绕知识点生成阅读理解类题型；理科可出冷门易错题型，侧重公式推导和概念辨析"
-        />
-      </div>
+      <template v-if="!selectedConfigId">
+        <div class="config-section" style="margin-top:16px;">
+          <div class="config-label">生成数量</div>
+          <el-radio-group v-model="genCount">
+            <el-radio-button :value="20">20</el-radio-button>
+            <el-radio-button :value="50">50</el-radio-button>
+            <el-radio-button :value="60">60</el-radio-button>
+          </el-radio-group>
+        </div>
+        <div class="config-section" style="margin-top:16px;">
+          <el-checkbox v-model="includeFill">包含填空题</el-checkbox>
+        </div>
+        <div class="config-section" style="margin-top:16px;">
+          <div class="config-label">出题方向（选填）</div>
+          <el-input
+            v-model="direction"
+            type="textarea"
+            :rows="3"
+            placeholder="例如：文科可围绕知识点生成阅读理解类题型；理科可出冷门易错题型，侧重公式推导和概念辨析"
+          />
+        </div>
+      </template>
+      <template v-else>
+        <div class="config-section" style="margin-top:16px;">
+          <div class="config-label">题型预览</div>
+          <div class="config-preview">
+            <el-tag
+              v-for="t in selectedConfigTypes"
+              :key="t.questionType"
+              size="small"
+              class="preview-tag"
+            >
+              {{ getQuestionTypeLabel(t.questionType) }} ×{{ t.count }}
+            </el-tag>
+            <div class="preview-total">共 <strong>{{ selectedConfigTotal }}</strong> 道题</div>
+          </div>
+        </div>
+        <div class="config-section" style="margin-top:16px;" v-if="selectedConfig?.direction">
+          <div class="config-label">出题方向</div>
+          <div class="config-direction-preview">{{ selectedConfig.direction }}</div>
+        </div>
+        <div class="config-section" style="margin-top:16px;">
+          <div class="config-label">补充方向（选填）</div>
+          <el-input
+            v-model="direction"
+            type="textarea"
+            :rows="2"
+            placeholder="可在此补充额外要求..."
+          />
+        </div>
+      </template>
       <template #footer>
         <el-button @click="regenerateVisible = false">取消</el-button>
         <el-button type="primary" @click="handleRegenerateConfirm" :loading="regenerating">
@@ -136,7 +183,8 @@ import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import * as questionApi from '@/api/question'
 import { getDocumentById } from '@/api/document'
 import { getQuestionTypeLabel } from '@/utils'
-import type { QuestionItem } from '@/types'
+import * as configApi from '@/api/questionGenConfig'
+import type { QuestionItem, GenConfigItem, GenConfigTypeItem } from '@/types'
 import QuestionCard from '@/components/QuestionCard.vue'
 import QuestionForm from '@/components/QuestionForm.vue'
 
@@ -163,8 +211,26 @@ const genCount = ref(20)
 const includeFill = ref(false)
 const direction = ref('')
 
+// 配置模板相关
+const configList = ref<GenConfigItem[]>([])
+const selectedConfigId = ref('')
+
+const selectedConfig = computed(() =>
+  configList.value.find(c => c.id === selectedConfigId.value)
+)
+
+const selectedConfigTypes = computed<GenConfigTypeItem[]>(() => {
+  if (!selectedConfig.value) return []
+  return selectedConfig.value.types || []
+})
+
+const selectedConfigTotal = computed(() => {
+  const sum = selectedConfigTypes.value.reduce((s, t) => s + (t.count || 0), 0)
+  return sum > 0 ? sum : (selectedConfig.value?.totalCount || 0)
+})
+
 const groupedQuestions = computed(() => {
-  const types = ['SINGLE', 'MULTI', 'JUDGE', 'FILL', 'SHORT']
+  const types = ['SINGLE', 'MULTI', 'JUDGE', 'FILL', 'SHORT', 'CODE', 'CALCULATION']
   return types
     .map(type => ({
       type,
@@ -259,12 +325,18 @@ function handleEditQuestion(q: QuestionItem) {
 }
 
 async function handleSaveQuestion(data: QuestionItem) {
-  if (data.id) {
+  if (!data.id) {
+    ElMessage.error('题目ID缺失，无法保存')
+    return
+  }
+  try {
     await questionApi.updateQuestion(data.id, data)
     ElMessage.success('题目已更新')
+    formVisible.value = false
+    fetchQuestions()
+  } catch {
+    // request 拦截器已显示错误消息
   }
-  formVisible.value = false
-  fetchQuestions()
 }
 
 async function handleDeleteSingle(q: QuestionItem) {
@@ -293,23 +365,48 @@ async function handleBatchConfirm() {
   } catch { /* ignore */ }
 }
 
+async function fetchConfigList() {
+  try {
+    const { data } = await configApi.listActiveConfigs()
+    configList.value = data.data || []
+  } catch { /* ignore */ }
+}
+
+function onConfigSelect() {
+  direction.value = ''
+}
+
 function handleRegenerate() {
   genCount.value = 20
   includeFill.value = false
   direction.value = ''
+  selectedConfigId.value = ''
+  fetchConfigList()
   regenerateVisible.value = true
 }
 
 async function handleRegenerateConfirm() {
   regenerating.value = true
   try {
-    await questionApi.generateQuestions(docId, {
-      totalCount: genCount.value,
-      includeFill: includeFill.value,
-      typeRatios: { single: 50, multi: 30, judge: 20 },
-      direction: direction.value || undefined
-    })
-    ElMessage.success('题目已重新生成')
+    if (selectedConfigId.value) {
+      // 使用配置模板生成
+      await questionApi.generateQuestions(docId, {
+        totalCount: selectedConfigTotal.value,
+        includeFill: false,
+        typeRatios: { single: 50, multi: 30, judge: 20 },
+        direction: direction.value || undefined,
+        configId: selectedConfigId.value
+      })
+    } else {
+      // 旧的手动模式
+      await questionApi.generateQuestions(docId, {
+        totalCount: genCount.value,
+        includeFill: includeFill.value,
+        typeRatios: { single: 50, multi: 30, judge: 20 },
+        direction: direction.value || undefined
+      })
+    }
+    ElMessage.success('题目已生成')
     regenerateVisible.value = false
     selectedIds.value = []
     fetchQuestions()
@@ -383,5 +480,38 @@ onMounted(fetchQuestions)
 .pagination {
   margin-top: 16px;
   justify-content: flex-end;
+}
+.config-select {
+  width: 100%;
+}
+.config-option-extra {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  margin-left: 4px;
+}
+.config-preview {
+  padding: 12px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-sm);
+  min-height: 40px;
+}
+.preview-tag {
+  margin-right: 6px;
+  margin-bottom: 4px;
+}
+.preview-total {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.config-direction-preview {
+  padding: 10px 12px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  max-height: 120px;
+  overflow-y: auto;
 }
 </style>

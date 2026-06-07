@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS `doc_document` (
 CREATE TABLE IF NOT EXISTS `doc_question` (
     `id`              BIGINT       NOT NULL COMMENT '主键',
     `document_id`     BIGINT       NOT NULL COMMENT '所属文档ID',
-    `question_type`   VARCHAR(20)  NOT NULL COMMENT '题型：SINGLE/MULTI/JUDGE/FILL/SHORT',
+    `question_type`   VARCHAR(20)  NOT NULL COMMENT '题型：SINGLE/MULTI/JUDGE/FILL/SHORT/CODE/CALCULATION',
     `question_title`  TEXT         NOT NULL COMMENT '题干',
     `analysis`        TEXT         DEFAULT NULL COMMENT '答案解析',
     `difficulty`      TINYINT      NOT NULL DEFAULT 1 COMMENT '难度：1-简单 2-中等 3-困难',
@@ -129,6 +129,9 @@ CREATE TABLE IF NOT EXISTS `test_paper` (
     `multi_count`     INT          NOT NULL DEFAULT 0 COMMENT '多选题数量',
     `judge_count`     INT          NOT NULL DEFAULT 0 COMMENT '判断题数量',
     `fill_count`      INT          NOT NULL DEFAULT 0 COMMENT '填空题数量',
+    `short_count`     INT          NOT NULL DEFAULT 0 COMMENT '简答题数量',
+    `code_count`      INT          NOT NULL DEFAULT 0 COMMENT '代码题数量',
+    `calc_count`      INT          NOT NULL DEFAULT 0 COMMENT '计算大题数量',
     `total_score`     INT          NOT NULL DEFAULT 100 COMMENT '试卷总分',
     `status`          TINYINT      NOT NULL DEFAULT 1 COMMENT '状态',
     `create_user_id`  BIGINT       NOT NULL COMMENT '创建人ID',
@@ -144,7 +147,7 @@ CREATE TABLE IF NOT EXISTS `test_paper_answer` (
     `id`              BIGINT       NOT NULL COMMENT '主键',
     `test_paper_id`   BIGINT       NOT NULL COMMENT '试卷ID',
     `question_id`     BIGINT       NOT NULL COMMENT '题目ID',
-    `question_type`   VARCHAR(20)  NOT NULL COMMENT '题型：SINGLE/MULTI/JUDGE/FILL/SHORT',
+    `question_type`   VARCHAR(20)  NOT NULL COMMENT '题型：SINGLE/MULTI/JUDGE/FILL/SHORT/CODE/CALCULATION',
     `correct_answer`  TEXT         NOT NULL COMMENT '正确答案（选项label数组JSON，如["B"]、["A","C"]、["正确"]）',
     `score`           INT          NOT NULL DEFAULT 5 COMMENT '分值',
     `sort`            INT          NOT NULL DEFAULT 0 COMMENT '排序',
@@ -171,3 +174,27 @@ CREATE TABLE IF NOT EXISTS `quiz_result` (
     KEY `idx_document_id` (`document_id`),
     KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='答题记录/成绩表';
+
+CREATE TABLE IF NOT EXISTS `question_gen_config` (
+    `id`            BIGINT       NOT NULL COMMENT '主键（雪花ID）',
+    `name`          VARCHAR(100) NOT NULL COMMENT '配置名称',
+    `description`   VARCHAR(500) DEFAULT NULL COMMENT '配置描述',
+    `total_count`   INT          NOT NULL DEFAULT 0 COMMENT '总题数',
+    `need_passage`  TINYINT      NOT NULL DEFAULT 0 COMMENT '选择题是否强制附带阅读材料 0-否 1-是',
+    `direction`     TEXT         DEFAULT NULL COMMENT '出题方向/额外提示词',
+    `sort`          INT          NOT NULL DEFAULT 0 COMMENT '排序',
+    `is_active`     TINYINT      NOT NULL DEFAULT 1 COMMENT '是否启用 0-禁用 1-启用',
+    `create_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='题目生成配置表';
+
+CREATE TABLE IF NOT EXISTS `question_gen_config_type` (
+    `id`            BIGINT       NOT NULL COMMENT '主键（雪花ID）',
+    `config_id`     BIGINT       NOT NULL COMMENT '配置ID',
+    `question_type` VARCHAR(20)  NOT NULL COMMENT '题型：SINGLE/MULTI/JUDGE/FILL/SHORT/CODE/CALCULATION',
+    `count`         INT          NOT NULL DEFAULT 0 COMMENT '题目数量',
+    `sort`          INT          NOT NULL DEFAULT 0 COMMENT '排序',
+    PRIMARY KEY (`id`),
+    KEY `idx_config_id` (`config_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='题目生成配置题型明细表';

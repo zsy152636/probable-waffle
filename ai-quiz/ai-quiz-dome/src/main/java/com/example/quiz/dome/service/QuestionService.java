@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.quiz.ai.service.AIService;
 import com.example.quiz.dome.entity.Document;
 import com.example.quiz.dome.entity.Question;
+import com.example.quiz.dome.entity.QuestionGenConfig;
+import com.example.quiz.dome.entity.QuestionGenConfigType;
 import com.example.quiz.dome.entity.QuestionOption;
 import com.example.quiz.dome.mapper.DocumentMapper;
 import com.example.quiz.dome.mapper.QuestionMapper;
@@ -47,6 +49,38 @@ public class QuestionService {
         deleteAllByDocument(documentId);
 
         String aiJson = aiService.generateQuestions(doc.getContentText(), totalCount, includeFill, typeRatios, direction);
+        List<Question> questions = parseAndSave(aiJson, documentId);
+
+        doc.setQuestionCount(questions.size());
+        doc.setQuestionGenTime(LocalDateTime.now());
+        documentMapper.updateById(doc);
+
+        return questions;
+    }
+
+    @Transactional
+    public List<Question> generateQuestionsFromConfig(Long documentId, QuestionGenConfig config, String direction) {
+        Document doc = documentMapper.selectById(documentId);
+        if (doc == null) throw new BusinessException("文档不存在");
+        if (doc.getContentText() == null || doc.getContentText().isBlank())
+            throw new BusinessException("文档内容为空，无法生成题目");
+
+        deleteAllByDocument(documentId);
+
+        // 将子表实体转为 Map 列表传给 AI 服务（避免跨模块依赖）
+        List<Map<String, Object>> types = new ArrayList<>();
+        if (config.getTypes() != null) {
+            for (QuestionGenConfigType t : config.getTypes()) {
+                Map<String, Object> tm = new LinkedHashMap<>();
+                tm.put("questionType", t.getQuestionType());
+                tm.put("count", t.getCount());
+                types.add(tm);
+            }
+        }
+
+        String aiJson = aiService.generateQuestionsFromConfig(
+                doc.getContentText(), config.getTotalCount(), config.getNeedPassage(),
+                types, config.getDirection(), direction);
         List<Question> questions = parseAndSave(aiJson, documentId);
 
         doc.setQuestionCount(questions.size());
@@ -170,6 +204,53 @@ public class QuestionService {
 
     public void update(Question question) {
         questionMapper.updateById(question);
+    }
+
+    @Transactional
+    public void updateWithOptions(Long id, Map<String, Object> body) {
+        // 1. 更新题目主体
+        Question q = new Question();
+        q.setId(id);
+        q.setQuestionType((String) body.get("questionType"));
+        q.setQuestionTitle((String) body.get("questionTitle"));
+        q.setPassage((String) body.get("passage"));
+        q.setAnalysis((String) body.get("analysis"));
+        Object difficulty = body.get("difficulty");
+        q.setDifficulty(difficulty instanceof Integer i ? i : 1);
+        Object score = body.get("score");
+        q.setScore(score instanceof Integer i ? i : 5);
+        Object sort = body.get("sort");
+        q.setSort(sort instanceof Integer i ? i : 0);
+        Object status = body.get("status");
+        q.setStatus(status instanceof Integer i ? i : 0);
+        Object docId = body.get("documentId");
+        if (docId instanceof String s) {
+            q.setDocumentId(Long.valueOf(s));
+        } else if (docId instanceof Number n) {
+            q.setDocumentId(n.longValue());
+        }
+        questionMapper.updateById(q);
+
+        // 2. 删除旧选项
+        optionMapper.delete(new LambdaQueryWrapper<QuestionOption>()
+                .eq(QuestionOption::getQuestionId, id));
+
+        // 3. 插入新选项
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> options = (List<Map<String, Object>>) body.get("options");
+        if (options != null && !options.isEmpty()) {
+            int optSort = 0;
+            for (Map<String, Object> optMap : options) {
+                QuestionOption opt = new QuestionOption();
+                opt.setQuestionId(id);
+                opt.setOptionLabel((String) optMap.get("label"));
+                opt.setOptionText((String) optMap.get("text"));
+                Object isCorrect = optMap.get("isCorrect");
+                opt.setIsCorrect(isCorrect instanceof Boolean b && b ? 1 : 0);
+                opt.setSort(optSort++);
+                optionMapper.insert(opt);
+            }
+        }
     }
 
     public void deleteQuestion(Long id) {

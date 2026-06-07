@@ -18,6 +18,9 @@ public class TestPaper {
     private Integer multiCount;
     private Integer judgeCount;
     private Integer fillCount;
+    private Integer shortCount;
+    private Integer codeCount;
+    private Integer calcCount;
     private Integer totalScore;
     private Integer status;
     private Long createUserId;

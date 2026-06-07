@@ -10,7 +10,9 @@ import com.example.quiz.sys.common.Result;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.example.quiz.dome.entity.QuestionGenConfig;
 import com.example.quiz.dome.entity.QuestionOption;
+import com.example.quiz.dome.service.QuestionGenConfigService;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -20,29 +22,54 @@ public class QuestionController {
 
     private final QuestionService questionService;
     private final TestPaperService testPaperService;
+    private final QuestionGenConfigService configService;
 
-    public QuestionController(QuestionService questionService, TestPaperService testPaperService) {
+    public QuestionController(QuestionService questionService, TestPaperService testPaperService,
+                              QuestionGenConfigService configService) {
         this.questionService = questionService;
         this.testPaperService = testPaperService;
+        this.configService = configService;
     }
 
     @PostMapping("/documents/{docId}/generate-questions")
     @PreAuthorize("hasAuthority('doc:genQuestion')")
     public Result<List<Map<String, Object>>> generateQuestions(
             @PathVariable Long docId, @RequestBody Map<String, Object> body) {
-        int totalCount = body.get("totalCount") instanceof Integer i ? i : 20;
-        boolean includeFill = body.get("includeFill") instanceof Boolean b && b;
-        String direction = body.get("direction") instanceof String s ? s : "";
-        @SuppressWarnings("unchecked")
-        Map<String, Integer> typeRatios = (Map<String, Integer>) body.get("typeRatios");
-        if (typeRatios == null) {
-            typeRatios = new LinkedHashMap<>();
-            typeRatios.put("single", 50);
-            typeRatios.put("multi", 30);
-            typeRatios.put("judge", 20);
+        Object configIdObj = body.get("configId");
+        List<Question> questions;
+
+        Long configId = null;
+        if (configIdObj instanceof Number n) {
+            configId = n.longValue();
+        } else if (configIdObj instanceof String s && !s.isBlank()) {
+            configId = Long.valueOf(s);
         }
 
-        List<Question> questions = questionService.generateQuestions(docId, totalCount, includeFill, typeRatios, direction);
+        if (configId != null) {
+            // 新模式：使用题目生成配置
+            QuestionGenConfig config = configService.getById(configId);
+            if (config == null) {
+                return Result.fail("题目生成配置不存在");
+            }
+            String reqDirection = body.get("direction") instanceof String s ? s : "";
+            String direction = mergeDirection(config.getDirection(), reqDirection);
+            questions = questionService.generateQuestionsFromConfig(docId, config, direction);
+        } else {
+            // 兼容旧模式
+            int totalCount = body.get("totalCount") instanceof Integer i ? i : 20;
+            boolean includeFill = body.get("includeFill") instanceof Boolean b && b;
+            String direction = body.get("direction") instanceof String s ? s : "";
+            @SuppressWarnings("unchecked")
+            Map<String, Integer> typeRatios = (Map<String, Integer>) body.get("typeRatios");
+            if (typeRatios == null) {
+                typeRatios = new LinkedHashMap<>();
+                typeRatios.put("single", 50);
+                typeRatios.put("multi", 30);
+                typeRatios.put("judge", 20);
+            }
+            questions = questionService.generateQuestions(docId, totalCount, includeFill, typeRatios, direction);
+        }
+
         List<Map<String, Object>> result = new ArrayList<>();
         for (Question q : questions) {
             Map<String, Object> item = new LinkedHashMap<>();
@@ -78,7 +105,7 @@ public class QuestionController {
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String questionType,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int pageSize) {
+            @RequestParam(defaultValue = "50") int pageSize) {
         Page<Question> questionPage = questionService.listByDocument(docId, status, questionType, page, pageSize);
         List<Question> questions = questionPage.getRecords();
 
@@ -123,9 +150,8 @@ public class QuestionController {
 
     @PutMapping("/questions/{id}")
     @PreAuthorize("hasAuthority('question:confirm')")
-    public Result<?> updateQuestion(@PathVariable Long id, @RequestBody Question question) {
-        question.setId(id);
-        questionService.update(question);
+    public Result<?> updateQuestion(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        questionService.updateWithOptions(id, body);
         return Result.ok();
     }
 
@@ -148,6 +174,16 @@ public class QuestionController {
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("paperId", paper.getId().toString());
         resp.put("paperNo", paper.getPaperNo());
+        resp.put("paperName", paper.getPaperName());
+        resp.put("totalCount", paper.getTotalCount());
+        resp.put("singleCount", paper.getSingleCount());
+        resp.put("multiCount", paper.getMultiCount());
+        resp.put("judgeCount", paper.getJudgeCount());
+        resp.put("fillCount", paper.getFillCount());
+        resp.put("shortCount", paper.getShortCount());
+        resp.put("codeCount", paper.getCodeCount());
+        resp.put("calcCount", paper.getCalcCount());
+        resp.put("totalScore", paper.getTotalScore());
         return Result.ok(resp);
     }
 
@@ -163,5 +199,15 @@ public class QuestionController {
     public Result<?> cancelGenerate(@PathVariable Long docId) {
         questionService.cancelGenerate(docId);
         return Result.ok();
+    }
+
+    private String mergeDirection(String configDirection, String reqDirection) {
+        if (configDirection == null || configDirection.isBlank()) {
+            return reqDirection;
+        }
+        if (reqDirection == null || reqDirection.isBlank()) {
+            return configDirection;
+        }
+        return configDirection + "\n" + reqDirection;
     }
 }

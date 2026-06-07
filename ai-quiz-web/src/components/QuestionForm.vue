@@ -53,6 +53,14 @@
         <el-input v-model="form.options[0].text" type="textarea" :rows="2" />
       </el-form-item>
 
+      <el-form-item v-if="form.questionType === 'CODE'" label="参考代码">
+        <el-input v-model="form.options[0].text" type="textarea" :rows="8" class="code-editor" placeholder="def solution():&#10;    # 在此编写参考代码&#10;    pass" />
+      </el-form-item>
+
+      <el-form-item v-if="form.questionType === 'CALCULATION'" label="所需公式">
+        <el-input v-model="form.options[0].text" type="textarea" :rows="4" placeholder="给出解题所需的关键公式，不提供完整解题过程" />
+      </el-form-item>
+
       <el-form-item v-if="form.questionType === 'JUDGE'" label="正确答案">
         <el-radio-group v-model="form.options[0].isCorrect">
           <el-radio :value="true">正确</el-radio>
@@ -157,7 +165,7 @@ watch(() => form.questionType, (type: QuestionType) => {
       { label: 'A', text: '正确', isCorrect: true, sort: 0 },
       { label: 'B', text: '错误', isCorrect: false, sort: 1 }
     ]
-  } else if (type === 'FILL' || type === 'SHORT') {
+  } else if (type === 'FILL' || type === 'SHORT' || type === 'CODE' || type === 'CALCULATION') {
     form.options = [{ label: '', text: '', isCorrect: true, sort: 0 }]
   } else {
     form.options = defaultOptions()
@@ -174,8 +182,15 @@ watch(() => props.visible, (val) => {
 
 async function handleSubmit() {
   if (!formRef.value) return
-  await formRef.value.validate()
-  emit('submit', JSON.parse(JSON.stringify(form)))
+  submitting.value = true
+  try {
+    await formRef.value.validate()
+    emit('submit', JSON.parse(JSON.stringify(form)))
+  } catch {
+    // 表单验证失败，Element Plus 会自动显示字段级错误信息
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 

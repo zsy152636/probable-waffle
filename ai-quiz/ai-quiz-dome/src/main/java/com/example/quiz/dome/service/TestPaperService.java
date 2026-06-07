@@ -76,6 +76,9 @@ public class TestPaperService {
         paper.setMultiCount(countByType(questions, "MULTI"));
         paper.setJudgeCount(countByType(questions, "JUDGE"));
         paper.setFillCount(countByType(questions, "FILL"));
+        paper.setShortCount(countByType(questions, "SHORT"));
+        paper.setCodeCount(countByType(questions, "CODE"));
+        paper.setCalcCount(countByType(questions, "CALCULATION"));
         paper.setTotalScore(questions.stream().mapToInt(Question::getScore).sum());
         paper.setStatus(1);
         paper.setCreateUserId(doc.getUploadUserId());

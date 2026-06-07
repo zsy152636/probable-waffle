@@ -88,13 +88,30 @@
                       </template>
                     </div>
 
-                    <!-- 填空 / 简答 -->
+                    <!-- 填空 / 简答 / 代码 / 计算 -->
                     <div v-else class="q-options">
                       <el-input
                         v-if="q.questionType === 'FILL'"
                         :model-value="(userAnswers[q.id] || [''])[0]"
                         @update:model-value="setAnswer(q.id, [$event as string])"
                         placeholder="请输入答案"
+                      />
+                      <el-input
+                        v-else-if="q.questionType === 'CODE'"
+                        :model-value="(userAnswers[q.id] || [''])[0]"
+                        @update:model-value="setAnswer(q.id, [$event as string])"
+                        type="textarea"
+                        :rows="10"
+                        class="code-textarea"
+                        placeholder="请编写代码..."
+                      />
+                      <el-input
+                        v-else-if="q.questionType === 'CALCULATION'"
+                        :model-value="(userAnswers[q.id] || [''])[0]"
+                        @update:model-value="setAnswer(q.id, [$event as string])"
+                        type="textarea"
+                        :rows="5"
+                        placeholder="请写出计算过程..."
                       />
                       <el-input
                         v-else
@@ -311,7 +328,7 @@ const unansweredCount = computed(() =>
 
 const questionGroups = computed(() => {
   if (!paper.value) return []
-  const types = ['SINGLE', 'MULTI', 'JUDGE', 'FILL', 'SHORT'] as QuestionType[]
+  const types = ['SINGLE', 'MULTI', 'JUDGE', 'FILL', 'SHORT', 'CODE', 'CALCULATION'] as QuestionType[]
   let startIdx = 0
   return types
     .map(type => {
@@ -857,5 +874,9 @@ watch(() => route.params.resultId, async (newVal) => {
   font-size: var(--text-sm);
   color: var(--text-tertiary);
   margin: 0;
+}
+.code-textarea textarea {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
 }
 </style>

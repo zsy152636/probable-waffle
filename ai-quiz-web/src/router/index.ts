@@ -38,6 +38,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'AI配置', permission: 'ai:list' }
       },
       {
+        path: 'system/question-config',
+        name: 'QuestionGenConfig',
+        component: () => import('@/views/system/QuestionGenConfigView.vue'),
+        meta: { title: '题目生成配置', permission: 'doc:genQuestion' }
+      },
+      {
         path: 'app/document',
         name: 'DocumentList',
         component: () => import('@/views/app/DocumentListView.vue'),

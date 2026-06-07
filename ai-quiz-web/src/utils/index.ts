@@ -28,11 +28,13 @@ export function getDifficultyStars(difficulty: number): string {
 
 export function getQuestionTypeLabel(type: string): string {
   const map: Record<string, string> = {
-    SINGLE: '单选题',
+    SINGLE: '选择题',
     MULTI: '多选题',
     JUDGE: '判断题',
     FILL: '填空题',
-    SHORT: '简答题'
+    SHORT: '简答题',
+    CODE: '代码题',
+    CALCULATION: '计算大题'
   }
   return map[type] || type
 }
